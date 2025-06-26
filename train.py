@@ -27,13 +27,20 @@ from utils.wandb_logger import Logger
 from datasets import load_from_disk
 
 def training_loop_(
-    save_dir, accelerator, gan, sup_gan, latent_gan, similarity_gan, translator, sup_dataloader, sup_iter, unsup_dataloader, sup_encs, unsup_enc, cfg, opt, scheduler, logger=None, max_num_batches=None
+    save_dir, accelerator, gan, sup_gan, latent_gan, similarity_gan, translator, sup_dataloader, sup_iter, unsup_dataloader, sup_encs, unsup_enc, cfg, opt, scheduler, cur_epoch, logger=None, max_num_batches=None
 ):
+    
+    log_file_path = os.path.join(save_dir, f"loss_log_epoch_{cur_epoch}.txt")
+
+    
+    
     device = accelerator.device
     if logger is None:
         logger = Logger(dummy=True)
 
     # wandb.watch(translator, log='all')
+
+
 
     if sup_iter is not None:
         dataloader_pbar = unsup_dataloader
@@ -208,6 +215,12 @@ def training_loop_(
                 logger.logkv(metric, value)
             logger.dumpkvs(force=(hasattr(cfg, 'force_dump') and cfg.force_dump))
             dataloader_pbar.set_postfix(metrics)
+            if not i%5:
+                with open(log_file_path, 'a') as f:
+                    f.write(f'Epoch {cur_epoch} Iteration {i}:\n')
+                    for k, v in metrics.items():
+                        f.write(f'{k}: {v}\n')
+                    f.write('\n')
 
     with open(save_dir + 'config.toml', 'w') as f:
         toml.dump(cfg.__dict__, f)
@@ -581,7 +594,8 @@ def main():
             opt=opt,
             scheduler=scheduler,
             logger=logger,
-            max_num_batches=max_num_batches
+            max_num_batches=max_num_batches,
+            cur_epoch = epoch
         )
 
     with open(save_dir + 'config.toml', 'w') as f:
